@@ -137,10 +137,19 @@ def send_daily_report():
 
 # --- 指令區 ---
 @bot.message_handler(commands=['start'])
+def handle_test(message):
+    bot.reply_to(message, "🎨 正在生成「美化連結版」日報，請稍等...")
+    global TARGET_CHAT_ID
+    temp_old_id = TARGET_CHAT_ID
+    TARGET_CHAT_ID = message.chat.id
+    send_daily_report()
+    TARGET_CHAT_ID = temp_old_id
+    
+    @bot.message_handler(commands=['ID'])
 def handle_start(message):
     bot.reply_to(message, f"Chat ID: `{message.chat.id}`", parse_mode='Markdown')
 
-@bot.message_handler(commands=['test'])
+@bot.message_handler(commands=['日報'])
 def handle_test(message):
     bot.reply_to(message, "🎨 正在生成「美化連結版」日報，請稍等...")
     global TARGET_CHAT_ID
