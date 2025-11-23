@@ -2,3 +2,4 @@ pyTelegramBotAPI
 schedule
 requests
 flask
+deep-translator
