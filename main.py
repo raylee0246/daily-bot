@@ -50,20 +50,21 @@ def get_smart_tags(repo_topics, language):
     
     return ", ".join(final_tags[:3])
 
-def get_weekly_trending(count=6):
-    # 搜尋過去 7 天
-    last_week = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-    url = f"https://api.github.com/search/repositories?q=created:>{last_week}&sort=stars&order=desc"
+def get_daily_trending(count=6):
+    # --- 修改點：這裡改成搜尋過去 1 天 (日報) ---
+    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    url = f"https://api.github.com/search/repositories?q=created:>{yesterday}&sort=stars&order=desc"
     
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Weekly-Bot)'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Daily-Bot)'}
         response = requests.get(url, headers=headers, timeout=10)
         data = response.json()
         
         results = []
         
         if 'items' in data and len(data['items']) > 0:
-            pool_size = min(len(data['items']), 50)
+            # 日報的池子比較小，我們取前 30 名來隨機挑
+            pool_size = min(len(data['items']), 30)
             sample_size = min(pool_size, count)
             selected_repos = random.sample(data['items'][:pool_size], sample_size)
             
@@ -99,27 +100,28 @@ def get_weekly_trending(count=6):
         print(f"GitHub API Error: {e}")
         return []
 
-def send_weekly_report():
+def send_daily_report():
     if not TARGET_CHAT_ID:
         print("尚未設定 Chat ID")
         return
 
-    print("正在準備精美連結版週報...")
-    repos = get_weekly_trending(count=6)
+    print("正在準備精美日報...")
+    repos = get_daily_trending(count=6)
     
     if repos:
         today = datetime.now().strftime('%m/%d')
-        msg = f"🚀 **GitHub 開源週報** ({today})\n"
-        msg += f"🔥 本週精選 Top {len(repos)}\n"
+        # --- 修改點：標題改回日報 ---
+        msg = f"🚀 **GitHub 開源日報** ({today})\n"
+        msg += f"🔥 今日精選 Top {len(repos)}\n"
         msg += "━━━━━━━━━━━━━━━━━━\n\n"
         
         for i, repo in enumerate(repos, 1):
             msg += (
                 f"**{i}. {repo['name']}**\n"
-                f"`{repo['stats_line']}`\n"      # 第二行：星星 + 語言
-                f"`{repo['tags_line']}`\n"       # 第三行：標籤
-                f"> 💡 {repo['desc']}\n"         # 第四行：簡介
-                f"🔗 [點此前往 GitHub 查看專案]({repo['link']})\n\n" # 第五行：明顯的連結
+                f"`{repo['stats_line']}`\n"      # 星星 + 語言
+                f"`{repo['tags_line']}`\n"       # 標籤
+                f"> 💡 {repo['desc']}\n"         # 簡介
+                f"🔗 [點此前往 GitHub 查看專案]({repo['link']})\n\n" # 獨立連結
             )
             
         msg += "━━━━━━━━━━━━━━━━━━\n"
@@ -127,7 +129,7 @@ def send_weekly_report():
 
         try:
             bot.send_message(TARGET_CHAT_ID, msg, parse_mode='Markdown', disable_web_page_preview=True)
-            print("週報已發送")
+            print("日報已發送")
         except Exception as e:
             print(f"發送失敗: {e}")
     else:
@@ -140,15 +142,16 @@ def handle_start(message):
 
 @bot.message_handler(commands=['test'])
 def handle_test(message):
-    bot.reply_to(message, "🎨 正在生成「連結加強版」週報，請稍等...")
+    bot.reply_to(message, "🎨 正在生成「美化連結版」日報，請稍等...")
     global TARGET_CHAT_ID
     temp_old_id = TARGET_CHAT_ID
     TARGET_CHAT_ID = message.chat.id
-    send_weekly_report()
+    send_daily_report()
     TARGET_CHAT_ID = temp_old_id
 
 # --- 排程區 ---
-schedule.every().monday.at("01:00").do(send_weekly_report)
+# 修改點：改回每天 (Every Day) 早上 09:00 (UTC 01:00)
+schedule.every().day.at("01:00").do(send_daily_report)
 
 def schedule_checker():
     while True:
