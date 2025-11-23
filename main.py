@@ -16,7 +16,6 @@ TARGET_CHAT_ID = os.environ.get('TARGET_CHAT_ID')
 bot = telebot.TeleBot(TOKEN)
 
 # --- 智慧設定 ---
-# 1. 優先顯示的平台/領域標籤
 PRIORITY_TAGS = [
     'android', 'ios', 'flutter', 'react-native', 'mobile',
     'windows', 'macos', 'linux', 'desktop', 'electron',
@@ -25,7 +24,6 @@ PRIORITY_TAGS = [
     'ai', 'machine-learning', 'chatgpt', 'llm', 'bot'
 ]
 
-# 2. 語言 Emoji
 LANG_ICONS = {
     'Python': '🐍', 'JavaScript': '🟨', 'TypeScript': '📘', 'Java': '☕',
     'Go': '🐹', 'Rust': '🦀', 'C++': 'Ⓜ️', 'C#': '#️⃣', 
@@ -38,9 +36,6 @@ def get_lang_emoji(language):
     return LANG_ICONS.get(language, '🔧')
 
 def get_smart_tags(repo_topics, language):
-    """
-    智慧篩選標籤：優先抓取「平台」相關的 Tag
-    """
     if not repo_topics:
         return language if language else "通用工具"
     
@@ -51,7 +46,6 @@ def get_smart_tags(repo_topics, language):
     return ", ".join(final_tags[:3])
 
 def get_daily_trending(count=6):
-    # --- 修改點：這裡改成搜尋過去 1 天 (日報) ---
     yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
     url = f"https://api.github.com/search/repositories?q=created:>{yesterday}&sort=stars&order=desc"
     
@@ -63,7 +57,6 @@ def get_daily_trending(count=6):
         results = []
         
         if 'items' in data and len(data['items']) > 0:
-            # 日報的池子比較小，我們取前 30 名來隨機挑
             pool_size = min(len(data['items']), 30)
             sample_size = min(pool_size, count)
             selected_repos = random.sample(data['items'][:pool_size], sample_size)
@@ -71,14 +64,12 @@ def get_daily_trending(count=6):
             translator = GoogleTranslator(source='auto', target='zh-TW')
             
             for repo in selected_repos:
-                # 簡介翻譯
                 original_desc = repo['description'] if repo['description'] else "無簡介"
                 try:
                     translated_desc = translator.translate(original_desc)
                 except Exception:
                     translated_desc = original_desc
                 
-                # 截斷過長簡介
                 if len(translated_desc) > 85:
                     translated_desc = translated_desc[:82] + "..."
 
@@ -110,7 +101,6 @@ def send_daily_report():
     
     if repos:
         today = datetime.now().strftime('%m/%d')
-        # --- 修改點：標題改回日報 ---
         msg = f"🚀 **GitHub 開源日報** ({today})\n"
         msg += f"🔥 今日精選 Top {len(repos)}\n"
         msg += "━━━━━━━━━━━━━━━━━━\n\n"
@@ -118,10 +108,10 @@ def send_daily_report():
         for i, repo in enumerate(repos, 1):
             msg += (
                 f"**{i}. {repo['name']}**\n"
-                f"`{repo['stats_line']}`\n"      # 星星 + 語言
-                f"`{repo['tags_line']}`\n"       # 標籤
-                f"> 💡 {repo['desc']}\n"         # 簡介
-                f"🔗 [點此前往 GitHub 查看專案]({repo['link']})\n\n" # 獨立連結
+                f"`{repo['stats_line']}`\n"
+                f"`{repo['tags_line']}`\n"
+                f"> 💡 {repo['desc']}\n"
+                f"🔗 [點此前往 GitHub 查看專案]({repo['link']})\n\n"
             )
             
         msg += "━━━━━━━━━━━━━━━━━━\n"
@@ -135,22 +125,34 @@ def send_daily_report():
     else:
         print("抓取資料失敗")
 
-# --- 指令區 ---
+# --- 指令區 (已修正) ---
+
+@bot.message_handler(commands=['id', 'ID'])
+def handle_id(message):
+    """
+    指令 /id : 回傳 Chat ID
+    """
+    bot.reply_to(message, f"Chat ID: `{message.chat.id}`", parse_mode='Markdown')
+
 @bot.message_handler(commands=['start'])
-def handle_test(message):
-    bot.reply_to(message, "🎨 正在生成「美化連結版」日報，請稍等...")
+def handle_start(message):
+    """
+    指令 /start : 手動觸發日報發送
+    """
+    bot.reply_to(message, "🎨 收到指令！正在生成精美日報，請稍等...")
+    
+    # 暫時把發送目標改成「當前發送指令的人」
     global TARGET_CHAT_ID
     temp_old_id = TARGET_CHAT_ID
     TARGET_CHAT_ID = message.chat.id
-    send_daily_report()
-    TARGET_CHAT_ID = temp_old_id
     
-    @bot.message_handler(commands=['ID'])
-def handle_start(message):
-    bot.reply_to(message, f"Chat ID: `{message.chat.id}`", parse_mode='Markdown')
+    # 發送日報
+    send_daily_report()
+    
+    # 還原目標 ID
+    TARGET_CHAT_ID = temp_old_id
 
 # --- 排程區 ---
-# 修改點：改回每天 (Every Day) 早上 09:00 (UTC 01:00)
 schedule.every().day.at("01:00").do(send_daily_report)
 
 def schedule_checker():
