@@ -149,15 +149,6 @@ def handle_test(message):
 def handle_start(message):
     bot.reply_to(message, f"Chat ID: `{message.chat.id}`", parse_mode='Markdown')
 
-@bot.message_handler(commands=['日報'])
-def handle_test(message):
-    bot.reply_to(message, "🎨 正在生成「美化連結版」日報，請稍等...")
-    global TARGET_CHAT_ID
-    temp_old_id = TARGET_CHAT_ID
-    TARGET_CHAT_ID = message.chat.id
-    send_daily_report()
-    TARGET_CHAT_ID = temp_old_id
-
 # --- 排程區 ---
 # 修改點：改回每天 (Every Day) 早上 09:00 (UTC 01:00)
 schedule.every().day.at("01:00").do(send_daily_report)
